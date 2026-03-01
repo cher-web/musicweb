@@ -1,0 +1,14 @@
+node_modules
+.next
+.vercel
+.wrangler
+.dev.vars
+
+# Environment files with secrets
+.env
+.env.local
+.env.production.local
+.env.development.local
+
+*.tsbuildinfo
+next-env.d.ts
