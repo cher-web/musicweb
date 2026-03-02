@@ -9,7 +9,11 @@ import {
 
 export const runtime = "edge";
 
-const openai = new OpenAI();
+let _openai: OpenAI | null = null;
+function getOpenAI() {
+  if (!_openai) _openai = new OpenAI();
+  return _openai;
+}
 
 // In-memory cache: trackId → validated VisualStyle
 // Note: on edge/serverless, this cache only lives per isolate instance
@@ -139,7 +143,7 @@ export async function POST(req: NextRequest) {
       userContent += `\nAlbum art dominant colors: ${albumColors.join(", ")}`;
     }
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.8,
       max_tokens: 500,
