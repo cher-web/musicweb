@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const data = await exchangeCode(code);
+    const origin = new URL(req.url).origin;
+    const data = await exchangeCode(code, origin);
 
     if (!data.access_token) {
       return NextResponse.redirect(new URL("/?error=token_failed", req.url));

@@ -4,8 +4,8 @@ const SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize";
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
 const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
 
-function getRedirectUri() {
-  return `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/callback`;
+function getRedirectUri(origin: string) {
+  return `${origin}/api/auth/callback`;
 }
 
 function getBasicAuth() {
@@ -14,19 +14,19 @@ function getBasicAuth() {
   );
 }
 
-export function getAuthUrl(state: string): string {
+export function getAuthUrl(state: string, origin: string): string {
   const params = new URLSearchParams({
     response_type: "code",
     client_id: process.env.SPOTIFY_CLIENT_ID!,
     scope: "user-top-read streaming user-read-playback-state user-modify-playback-state",
-    redirect_uri: getRedirectUri(),
+    redirect_uri: getRedirectUri(origin),
     state,
     show_dialog: "true",
   });
   return `${SPOTIFY_AUTH_URL}?${params}`;
 }
 
-export async function exchangeCode(code: string) {
+export async function exchangeCode(code: string, origin: string) {
   const res = await fetch(SPOTIFY_TOKEN_URL, {
     method: "POST",
     headers: {
@@ -36,7 +36,7 @@ export async function exchangeCode(code: string) {
     body: new URLSearchParams({
       grant_type: "authorization_code",
       code,
-      redirect_uri: getRedirectUri(),
+      redirect_uri: getRedirectUri(origin),
     }),
   });
   if (!res.ok) throw new Error("Token exchange failed");
