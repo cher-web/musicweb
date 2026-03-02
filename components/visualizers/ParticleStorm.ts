@@ -52,17 +52,11 @@ export function setup(ctx: ModeContext, style: VisualStyle): ModeInstance {
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
 
-  // Per-particle reveal thresholds for staggered appearance
-  const revealThresholds = new Float32Array(count);
-  for (let i = 0; i < count; i++) {
-    revealThresholds[i] = Math.random();
-  }
-
   const material = new THREE.PointsMaterial({
     size: THREE.MathUtils.lerp(0.02, 0.06, style.energy_level),
     vertexColors: true,
     transparent: true,
-    opacity: 0.0,
+    opacity: 0.8,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
@@ -82,9 +76,6 @@ export function setup(ctx: ModeContext, style: VisualStyle): ModeInstance {
 
   return {
     animate({ beat, time, energy, style, cursor }) {
-      // Time progression: ramp 0→1 over 20 seconds
-      const progress = Math.min(1, time / 20);
-
       // Lerp attractor toward cursor (or back to origin when inactive)
       const tx = cursor.active ? cursor.world.x : 0;
       const ty = cursor.active ? cursor.world.y : 0;
@@ -94,16 +85,9 @@ export function setup(ctx: ModeContext, style: VisualStyle): ModeInstance {
       attractorPos.z = THREE.MathUtils.lerp(attractorPos.z, tz, 0.04);
 
       const pos = geometry.attributes.position.array as Float32Array;
-      const col = geometry.attributes.color.array as Float32Array;
 
       for (let i = 0; i < count; i++) {
         const i3 = i * 3;
-
-        // Progressive reveal: each particle fades in at its threshold
-        const reveal = Math.max(0, Math.min(1, (progress - revealThresholds[i]) / 0.1));
-        col[i3 + 0] = colors[i3] * reveal;
-        col[i3 + 1] = colors[i3 + 1] * reveal;
-        col[i3 + 2] = colors[i3 + 2] * reveal;
 
         // Beat explosion: push outward
         const pushForce = beat * style.energy_level * 0.04;
@@ -132,14 +116,13 @@ export function setup(ctx: ModeContext, style: VisualStyle): ModeInstance {
       }
 
       geometry.attributes.position.needsUpdate = true;
-      geometry.attributes.color.needsUpdate = true;
 
-      // Particle size pulse with beat, scaled by progress
+      // Particle size pulse with beat
       material.size =
-        THREE.MathUtils.lerp(0.02, 0.06, energy) * (1 + beat * 0.5) * progress;
+        THREE.MathUtils.lerp(0.02, 0.06, energy) * (1 + beat * 0.5);
 
-      // Opacity from fade behavior, scaled by progress
-      material.opacity = progress * applyFadeBehavior(
+      // Opacity from fade behavior
+      material.opacity = applyFadeBehavior(
         style.fade_behavior,
         beat,
         energy,
