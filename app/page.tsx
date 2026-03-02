@@ -25,7 +25,8 @@ export default function Home() {
   const [visualStyle, setVisualStyle] = useState<VisualStyle | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>("medium_term");
-  const { play, stop, getPosition, isReady, isPremium } = usePlayback();
+  const { play, stop, getPosition, isReady, isPremium, mode, needsDevice } =
+    usePlayback();
 
   // Fetch top tracks on mount and when time range changes
   useEffect(() => {
@@ -114,8 +115,8 @@ export default function Home() {
     );
   }
 
-  // Non-Premium account
-  if (!isPremium) {
+  // Non-Premium account (SDK mode only — Connect mode doesn't hit this)
+  if (!isPremium && mode === "sdk") {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-6">
         <h1 className="text-3xl font-bold text-white">Premium Required</h1>
@@ -162,9 +163,11 @@ export default function Home() {
       <div className="pt-12 pb-8 text-center">
         <h1 className="text-3xl font-bold text-white mb-2">Your Top Tracks</h1>
         <p className="text-white/50 text-sm">
-          {isReady
-            ? "Click a track to visualize"
-            : "Connecting to Spotify..."}
+          {!isReady
+            ? "Connecting to Spotify..."
+            : mode === "connect"
+              ? "Open Spotify on your device, then tap a track"
+              : "Click a track to visualize"}
         </p>
         <div className="flex gap-2 justify-center mt-4">
           {(Object.keys(TIME_RANGE_LABELS) as TimeRange[]).map((range) => (
@@ -183,6 +186,23 @@ export default function Home() {
         </div>
       </div>
       <TrackGrid tracks={tracks} onTrackSelect={handleTrackSelect} />
+      {needsDevice && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex flex-col items-center justify-center gap-4 p-6">
+          <p className="text-white text-lg font-semibold text-center">
+            No active Spotify device found
+          </p>
+          <p className="text-white/50 text-sm text-center max-w-xs">
+            Open the Spotify app on your phone and play any song briefly, then
+            come back and tap a track.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-2 px-5 py-2 bg-green-500 hover:bg-green-400 text-black font-semibold rounded-full transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      )}
     </div>
   );
 }
