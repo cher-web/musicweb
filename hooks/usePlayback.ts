@@ -4,6 +4,11 @@ import { useRef, useCallback, useEffect, useState } from "react";
 
 export type PlaybackMode = "sdk" | "connect" | null;
 
+function isMobileDevice(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /Android|iPhone|iPad|iPod|Mobile|webOS/i.test(navigator.userAgent);
+}
+
 async function getAccessToken(): Promise<string | null> {
   try {
     const res = await fetch("/api/auth/token");
@@ -70,6 +75,15 @@ export function usePlayback() {
         setIsReady(true);
       }
     };
+
+    // On mobile, SDK registers a device but can't output audio — skip it entirely
+    if (isMobileDevice()) {
+      activateConnectMode();
+      return () => {
+        mounted = false;
+        stopPolling();
+      };
+    }
 
     const initPlayer = () => {
       try {

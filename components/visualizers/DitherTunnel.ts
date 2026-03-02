@@ -36,79 +36,44 @@ const fragmentShader = `
     return fract(sin(dot(p, vec2(269.5, 183.3))) * 43758.5453);
   }
 
-  // --- Procedural dither symbols ---
-  // Each takes local cell UV (0-1), returns brightness
+  // --- Pixelated bitmap symbols (5x5 grid per cell) ---
 
-  // . small dot
+  // · single center pixel
   float charDot(vec2 uv) {
-    return smoothstep(0.22, 0.10, length(uv - 0.5));
+    vec2 p = floor(uv * 5.0);
+    return (p.x == 2.0 && p.y == 2.0) ? 1.0 : 0.0;
   }
 
-  // : colon
-  float charColon(vec2 uv) {
-    float d1 = length(uv - vec2(0.5, 0.32));
-    float d2 = length(uv - vec2(0.5, 0.68));
-    return max(smoothstep(0.14, 0.06, d1), smoothstep(0.14, 0.06, d2));
+  // × diagonal cross
+  float charX(vec2 uv) {
+    vec2 p = floor(uv * 5.0);
+    return (abs(p.x - p.y) < 0.5 || abs(p.x - (4.0 - p.y)) < 0.5) ? 1.0 : 0.0;
   }
 
-  // + cross
+  // + pixel cross
   float charPlus(vec2 uv) {
-    vec2 p = abs(uv - 0.5);
-    float h = smoothstep(0.09, 0.04, p.y) * smoothstep(0.36, 0.30, p.x);
-    float v = smoothstep(0.09, 0.04, p.x) * smoothstep(0.36, 0.30, p.y);
-    return max(h, v);
+    vec2 p = floor(uv * 5.0);
+    return (p.x == 2.0 || p.y == 2.0) ? 1.0 : 0.0;
   }
 
-  // = equals
-  float charEquals(vec2 uv) {
-    float h1 = smoothstep(0.07, 0.03, abs(uv.y - 0.37)) * smoothstep(0.36, 0.30, abs(uv.x - 0.5));
-    float h2 = smoothstep(0.07, 0.03, abs(uv.y - 0.63)) * smoothstep(0.36, 0.30, abs(uv.x - 0.5));
-    return max(h1, h2);
+  // ■ small 3x3 block
+  float charBlock(vec2 uv) {
+    vec2 p = floor(uv * 5.0);
+    return (p.x >= 1.0 && p.x <= 3.0 && p.y >= 1.0 && p.y <= 3.0) ? 1.0 : 0.0;
   }
 
-  // # hash grid
-  float charHash(vec2 uv) {
-    float h1 = smoothstep(0.045, 0.015, abs(uv.y - 0.35)) * smoothstep(0.40, 0.34, abs(uv.x - 0.5));
-    float h2 = smoothstep(0.045, 0.015, abs(uv.y - 0.65)) * smoothstep(0.40, 0.34, abs(uv.x - 0.5));
-    float v1 = smoothstep(0.045, 0.015, abs(uv.x - 0.35)) * smoothstep(0.40, 0.34, abs(uv.y - 0.5));
-    float v2 = smoothstep(0.045, 0.015, abs(uv.x - 0.65)) * smoothstep(0.40, 0.34, abs(uv.y - 0.5));
-    return max(max(h1, h2), max(v1, v2));
-  }
-
-  // light dither dots
-  float charLight(vec2 uv) {
-    vec2 p = fract(uv * 3.0);
-    return smoothstep(0.30, 0.15, length(p - 0.5)) * 0.7;
-  }
-
-  // medium dither checkerboard
-  float charMedium(vec2 uv) {
-    vec2 p = floor(uv * 4.0);
-    return mod(p.x + p.y, 2.0) * 0.8;
-  }
-
-  // dense dither
-  float charDense(vec2 uv) {
-    vec2 p = fract(uv * 3.0);
-    return (1.0 - smoothstep(0.15, 0.30, length(p - 0.5)) * 0.5) * 0.9;
-  }
-
-  // solid block
-  float charSolid(vec2 uv) {
-    vec2 p = abs(uv - 0.5);
-    return smoothstep(0.46, 0.40, max(p.x, p.y));
+  // ░ checkerboard
+  float charChecker(vec2 uv) {
+    vec2 p = floor(uv * 5.0);
+    return mod(p.x + p.y, 2.0);
   }
 
   float getChar(vec2 uv, int idx) {
     if (idx <= 0) return charDot(uv);
-    if (idx == 1) return charColon(uv);
+    if (idx == 1) return charX(uv);
     if (idx == 2) return charPlus(uv);
-    if (idx == 3) return charEquals(uv);
-    if (idx == 4) return charHash(uv);
-    if (idx == 5) return charLight(uv);
-    if (idx == 6) return charMedium(uv);
-    if (idx == 7) return charDense(uv);
-    return charSolid(uv);
+    if (idx == 3) return charBlock(uv);
+    return charChecker(uv);
   }
 
   void main() {
@@ -159,9 +124,9 @@ const fragmentShader = `
     float scrollSpeed = uMotionSpeed * 5.0 + 2.0;
     depth += uTime * scrollSpeed;
 
-    // Symbol grid
-    float cols = 36.0;
-    float depthScale = 6.0;
+    // Symbol grid (sparser for more negative space)
+    float cols = 28.0;
+    float depthScale = 4.5;
 
     float u = (angle / 6.283185 + 0.5) * cols;
     float v = depth * depthScale;
@@ -176,21 +141,23 @@ const fragmentShader = `
     // Character selection — shifts over time, biased by depth
     float charShift = floor(uTime * 0.35 + h * 10.0);
     float depthFade = clamp(t * 0.04, 0.0, 1.0);
-    float maxIdx = mix(8.0, 3.0, depthFade); // far = lighter chars
-    int charIdx = int(mod(h * maxIdx + charShift, 9.0));
+    float maxIdx = mix(5.0, 2.0, depthFade); // far = simpler chars
+    int charIdx = int(mod(h * maxIdx + charShift, 5.0));
+
+    // Blank out ~45% of cells for negative space
+    float cellVisible = step(0.45, h);
 
     // Render symbol
-    float sym = getChar(cellUv, charIdx);
+    float sym = getChar(cellUv, charIdx) * cellVisible;
 
     // Progressive reveal — cells appear as uProgress ramps 0→1
-    // Each cell has a random threshold; it only appears once progress passes it
     float revealThreshold = hash2(cellId * 1.7 + 0.5);
     float cellReveal = smoothstep(revealThreshold - 0.05, revealThreshold + 0.05, uProgress);
     sym *= cellReveal;
 
-    // Cell borders — thin gap between symbols
-    float bx = smoothstep(0.0, 0.035, cellUv.x) * smoothstep(1.0, 0.965, cellUv.x);
-    float by = smoothstep(0.0, 0.035, cellUv.y) * smoothstep(1.0, 0.965, cellUv.y);
+    // Cell borders — wider gaps between symbols
+    float bx = smoothstep(0.0, 0.08, cellUv.x) * smoothstep(1.0, 0.92, cellUv.x);
+    float by = smoothstep(0.0, 0.08, cellUv.y) * smoothstep(1.0, 0.92, cellUv.y);
     sym *= bx * by;
 
     // Depth fog — exponential falloff to black vanishing point
@@ -216,7 +183,7 @@ const fragmentShader = `
     finalColor += color * ringFlash * fog * sym;
 
     // Subtle ambient tunnel glow
-    finalColor += color * fog * 0.012;
+    finalColor += color * fog * 0.005;
 
     gl_FragColor = vec4(finalColor, 1.0);
   }
