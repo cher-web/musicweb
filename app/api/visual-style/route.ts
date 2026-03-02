@@ -11,7 +11,13 @@ export const runtime = "edge";
 
 let _openai: OpenAI | null = null;
 function getOpenAI() {
-  if (!_openai) _openai = new OpenAI();
+  if (!_openai) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error("OPENAI_API_KEY is not configured");
+    }
+    _openai = new OpenAI({ apiKey });
+  }
   return _openai;
 }
 
@@ -167,6 +173,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(validated);
   } catch (err) {
     console.error("Visual style generation failed:", err);
-    return NextResponse.json(DEFAULT_STYLE);
+    return NextResponse.json({
+      ...DEFAULT_STYLE,
+      _fallback: true,
+      _reason: err instanceof Error ? err.message : "Unknown error",
+    });
   }
 }
